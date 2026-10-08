@@ -47,7 +47,7 @@ export function Events() {
           </div>
         </div>
         <div className="events-photo" data-events-photo>
-          <img src="/img/platter.svg" alt="Большой сет роллов для вечеринки на деревянной доске" loading="lazy" data-events-img />
+          <img src="/img/photos/platter.webp" alt="Большой сет роллов для вечеринки в деревянной лодке" loading="lazy" data-events-img />
         </div>
       </div>
     </section>

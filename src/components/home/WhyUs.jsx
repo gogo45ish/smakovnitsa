@@ -45,8 +45,8 @@ export function WhyUs() {
           </ul>
         </div>
         <div className="collage" ref={collage} data-collage>
-          <div className="c-tall"><img src="/img/collage-tall.svg" alt="Нигири с лососем и тунцом" loading="lazy" data-collage-a /></div>
-          <div className="c-square"><img src="/img/collage-square.svg" alt="Роллы с угрём на тарелке" loading="lazy" data-collage-b /></div>
+          <div className="c-tall"><img src="/img/photos/collage-tall.webp" alt="Башня из роллов с лососем и огурцом" loading="lazy" data-collage-a /></div>
+          <div className="c-square"><img src="/img/photos/collage-square.webp" alt="Ролл с лососем и икрой на чёрной тарелке" loading="lazy" data-collage-b /></div>
           <div className="since-badge" data-since><span>Готовим с</span><strong>2014</strong></div>
         </div>
       </div>

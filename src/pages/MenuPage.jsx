@@ -11,8 +11,8 @@ import { Link } from '../components/ui/Link.jsx';
 
 const NB = ' ';
 const PROMOS = [
-  { img: '/img/promo.svg', alt: 'Роллы с лососем на тёмной тарелке', title: `«Счастливые часы» — −20% на${NB}роллы`, text: 'Каждый день с 15:00 до 17:00.' },
-  { img: '/img/plate-party.svg', alt: 'Большой сет на круглой тарелке', contain: true, title: `−10% на${NB}первый заказ`, text: <>Промокод <strong style={{ color: 'var(--gold)' }}>СМАК10</strong> в{NB}корзине.</> },
+  { img: '/img/photos/promo.webp', alt: 'Роллы и нигири на чёрном столе, вид сверху', title: `«Счастливые часы» — −20% на${NB}роллы`, text: 'Каждый день с 15:00 до 17:00.' },
+  { img: '/img/photos/promo-party.webp', alt: 'Большой сет роллов на деревянной доске', title: `−10% на${NB}первый заказ`, text: <>Промокод <strong style={{ color: 'var(--gold)' }}>СМАК10</strong> в{NB}корзине.</> },
 ];
 
 export default function MenuPage() {
@@ -79,7 +79,7 @@ export default function MenuPage() {
           {PROMOS.map((p) => (
             <article key={p.img} className="promo-banner" data-reveal>
               <div className="media">
-                <img src={p.img} alt={p.alt} data-promo-img style={p.contain ? { objectFit: 'contain', background: '#0B1514' } : undefined} />
+                <img src={p.img} alt={p.alt} data-promo-img />
               </div>
               <div className="body">
                 <span className="t-eyebrow">Акция</span>

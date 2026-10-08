@@ -5,9 +5,9 @@ import { tg } from '../../lib/format.js';
 import { Link } from '../ui/Link.jsx';
 
 const CARDS = [
-  { id: 'rolls', title: 'Роллы', img: '/img/plate-rolls.svg', alt: 'Роллы с лососем и угрём на тарелке', text: 'Классические и авторские, от филадельфии до запечённых.' },
-  { id: 'sets', title: 'Сеты', img: '/img/plate-sets.svg', alt: 'Сет из роллов и нигири', text: 'Для компании от 2 до 10 человек. Выгоднее, чем по отдельности.' },
-  { id: 'hot', title: 'Вок и горячее', img: '/img/plate-wok.svg', alt: 'Лапша удон в тёмной миске', text: 'Лапша, рис, супы — на случай, если хочется тёплого.' },
+  { id: 'rolls', title: 'Роллы', img: '/img/photos/plate-rolls.webp', alt: 'Маки с лососем и авокадо, вид сверху', text: 'Классические и авторские, от филадельфии до запечённых.' },
+  { id: 'sets', title: 'Сеты', img: '/img/photos/plate-sets.webp', alt: 'Сет нигири на чёрной тарелке', text: 'Для компании от 2 до 10 человек. Выгоднее, чем по отдельности.' },
+  { id: 'hot', title: 'Вок и горячее', img: '/img/photos/plate-wok.webp', alt: 'Жареная лапша с овощами на деревянном блюде', text: 'Лапша, рис, супы — на случай, если хочется тёплого.' },
 ];
 
 export function Categories() {

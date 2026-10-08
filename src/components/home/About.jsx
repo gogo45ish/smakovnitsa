@@ -38,7 +38,7 @@ export function About() {
             <Link className="btn btn-primary" to="/#menu" data-reveal>Заказать</Link>
           </div>
           <div className="about-media" ref={media} data-clip-reveal>
-            <img src="/img/chef.svg" alt="Руки шефа нарезают ролл с лососем" loading="lazy" />
+            <img src="/img/photos/chef.webp" alt="Шеф смазывает нигири соусом" loading="lazy" />
           </div>
         </div>
         <div className="stats-row" data-reveal-group>

@@ -90,7 +90,7 @@ export function Hero() {
       </div>
       <div className="hero-plate-wrap" data-hero-plate-wrap>
         <div className="hero-plate-glow" />
-        <img className="hero-plate" src="/img/plate-hero.svg" alt="Ассорти-сет на чёрной керамической тарелке" data-hero-plate width="760" height="760" fetchPriority="high" />
+        <img className="hero-plate" src="/img/photos/plate-hero.webp" alt="Нигири и роллы с лососем на тёмной круглой тарелке" data-hero-plate width="760" height="760" fetchPriority="high" decoding="async" />
       </div>
       <div className="hero-scroll-hint" aria-hidden="true" data-hero-hint><span>Листайте</span><i /></div>
     </section>
