@@ -1,0 +1,140 @@
+/* Reset, typography, layout primitives — design.md §3, §4, §10 */
+*, *::before, *::after { box-sizing: border-box; }
+* { margin: 0; padding: 0; }
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  /* Locking scroll for the drawer/modal must not shift the page sideways */
+  scrollbar-gutter: stable;
+  -webkit-tap-highlight-color: transparent; /* we give our own :active feedback */
+  /* Anchors, Lenis scrollTo and keyboard focus all land below the sticky header */
+  scroll-padding-top: 80px;
+}
+html.lenis, html.lenis body { height: auto; }
+.lenis.lenis-smooth { scroll-behavior: auto !important; }
+.lenis.lenis-stopped { overflow: hidden; }
+
+body {
+  font-family: var(--font-ui);
+  font-size: 16px;
+  line-height: 24px;
+  letter-spacing: .5px;
+  color: var(--text-on-light);
+  background: var(--ink-700);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: clip;
+}
+body.is-locked { overflow: hidden; }
+
+img, svg, picture, video { display: block; max-width: 100%; }
+img { height: auto; }
+button, input, select, textarea { font: inherit; color: inherit; letter-spacing: inherit; }
+button { background: none; border: 0; cursor: pointer; touch-action: manipulation; -webkit-user-select: none; user-select: none; }
+img { -webkit-user-drag: none; }
+::selection { background: var(--gold); color: var(--ink-900); }
+a { color: inherit; text-decoration: none; }
+ul, ol { list-style: none; }
+table { border-collapse: collapse; }
+fieldset { border: 0; min-width: 0; }
+[hidden] { display: none !important; }
+
+p, li, dd { hyphens: auto; text-wrap: pretty; }
+h1, h2, h3, h4 { hyphens: manual; text-wrap: balance; }
+/* Numbers that change in place never jitter */
+output, .t-price, .t-stat, [data-count-to], [data-cart-total], [data-bar-total], .summary, .li-price { font-variant-numeric: tabular-nums; }
+[data-cart-total] { display: inline-block; }
+
+:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 3px;
+}
+
+.sr-only {
+  position: absolute !important;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0);
+  white-space: nowrap; border: 0;
+}
+
+.skip-link {
+  position: absolute; left: 16px; top: -100px; z-index: 1000;
+  background: var(--gold); color: var(--ink-700);
+  padding: 12px 20px; font-weight: 600;
+}
+.skip-link:focus { top: 16px; }
+
+/* ---------- Type ---------- */
+.t-display, .t-h2, .t-h3, .t-h4, .t-price, .t-stat {
+  font-family: var(--font-display);
+  font-weight: 400;
+}
+.t-display { font-size: var(--fs-display); line-height: var(--lh-display); letter-spacing: .5px; }
+.t-h2 { font-size: var(--fs-h2); line-height: var(--lh-h2); }
+.t-h3 { font-size: var(--fs-h3); line-height: var(--lh-h3); }
+.t-h4 { font-size: var(--fs-h4); line-height: var(--lh-h4); }
+.t-price { font-size: var(--fs-price); line-height: var(--lh-price); color: var(--salmon-deep); white-space: nowrap; }
+.t-stat { font-size: var(--fs-stat); line-height: var(--lh-stat); }
+.t-eyebrow { font-size: var(--fs-eyebrow); line-height: var(--lh-eyebrow); letter-spacing: .5px; color: var(--salmon-deep); display: block; margin-bottom: var(--s-3); }
+.t-body-lg { font-size: var(--fs-body-lg); line-height: var(--lh-body-lg); }
+.t-meta { font-size: 14px; line-height: 20px; letter-spacing: .3px; }
+.t-label { font-size: var(--fs-label); line-height: var(--lh-label); font-weight: 500; }
+.accent { color: var(--salmon); }
+.muted { color: var(--text-on-light-muted); }
+
+/* ---------- Section themes ---------- */
+.theme-dark { background: var(--ink-700); color: var(--text-on-dark); }
+.theme-dark .t-eyebrow, .theme-dark .t-price { color: var(--salmon); }
+.theme-dark .muted { color: var(--text-on-dark-muted); }
+.theme-deep { background: var(--ink-900); color: var(--text-on-dark); }
+.theme-deep .t-eyebrow, .theme-deep .t-price { color: var(--salmon); }
+.theme-deep .muted { color: var(--text-on-dark-muted); }
+.theme-white { background: var(--white); color: var(--text-on-light); }
+.theme-rice { background: var(--rice); color: var(--text-on-light); }
+
+.noise { position: relative; isolation: isolate; }
+.noise::after {
+  content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  background: url('/img/noise.svg'); opacity: .035;
+}
+
+/* ---------- Layout ---------- */
+.container {
+  width: 100%;
+  max-width: calc(var(--container) + var(--gutter) * 2);
+  margin-inline: auto;
+  padding-inline: var(--gutter);
+}
+.section { padding-block: var(--section-y); position: relative; }
+.section-head { text-align: center; max-width: 720px; margin: 0 auto var(--s-7); }
+.section-head p { margin-top: var(--s-4); }
+
+.grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+@media (min-width: 1200px) {
+  .grid { grid-template-columns: repeat(12, 1fr); gap: 24px; }
+}
+
+/* Main offset for the sticky header stack */
+main { display: block; }
+
+/* ---------- Page changes (React Router + View Transitions API) ----------
+   Same-document transitions: the outgoing page fades quickly, the new one settles in.
+   Header and cart bar are captured on their own, so they stay put (or morph) instead of blinking. */
+.site-header { view-transition-name: site-header; }
+.mobile-cart-bar { view-transition-name: cart-bar; }
+::view-transition-old(root) { animation: 150ms var(--ease-out) both vt-out; }
+::view-transition-new(root) { animation: 300ms var(--ease-out) both vt-in; }
+::view-transition-group(site-header),
+::view-transition-group(cart-bar) { animation-duration: 250ms; animation-timing-function: var(--ease-out); }
+@keyframes vt-out { to { opacity: 0; } }
+@keyframes vt-in { from { opacity: 0; transform: translateY(8px); } }
+/* Reduced motion: keep the crossfade, drop the travel */
+:root[data-motion="reduce"]::view-transition-new(root) { animation-name: vt-in-flat; }
+@keyframes vt-in-flat { from { opacity: 0; } }
+
+main:focus { outline: none; }
+/* Elements waiting off to the side for their entrance (x offsets) never widen the page.
+   clip (not hidden) keeps position: sticky working inside. */
+main { overflow-x: clip; } /* focused programmatically after navigation, never by the user */

@@ -1,0 +1,103 @@
+/* Design tokens — design.md §2–§4 */
+:root {
+  /* Darks */
+  --ink-900: #0B1514;
+  --ink-800: #0F1A1A;
+  --ink-700: #131D1C;
+
+  /* Lights */
+  --white: #FFFFFF;
+  --rice: #FFF0E1;
+
+  /* Accents */
+  --salmon: #F37D2F;
+  --salmon-deep: #B85410;
+  --gold: #BC914C;
+  --gold-hover: #A67D3C;
+
+  /* Text */
+  --text-on-dark: #FFFFFF;
+  --text-on-dark-muted: rgba(255, 255, 255, .68);
+  --text-on-light: var(--ink-700);
+  --text-on-light-muted: rgba(19, 29, 28, .68);
+
+  /* Lines */
+  --line-on-dark: rgba(255, 255, 255, .12);
+  --line-on-light: rgba(19, 29, 28, .12);
+
+  /* Functional */
+  --spicy: #D9452B;
+  --veggie: #6E9E5B;
+  --success: #4E9A6A;
+  --error: #D9452B;
+
+  /* Fonts */
+  --font-display: 'Prata', Georgia, 'Times New Roman', serif;
+  --font-ui: 'Jost', system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+  /* Spacing scale */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 24px;
+  --s-6: 32px;
+  --s-7: 48px;
+  --s-8: 64px;
+  --s-9: 100px;
+
+  /* Layout */
+  --container: 1200px;
+  --gutter: 16px;
+  --section-y: 56px;
+  --header-h: 64px;
+  --topbar-h: 36px;
+
+  /* Motion — strong custom curves; built-in CSS easings are too weak.
+     Enter/exit → ease-out · on-screen movement → ease-in-out · sheets → drawer · hover/colour → ease */
+  --ease-out: cubic-bezier(.23, 1, .32, 1);
+  --ease-in-out: cubic-bezier(.77, 0, .175, 1);
+  --ease-drawer: cubic-bezier(.32, .72, 0, 1);
+  --dur-press: 160ms;   /* button press feedback */
+  --dur-fast: 200ms;    /* hover, colour, small swaps */
+  --dur-ui: 250ms;      /* tabs, popovers, exits */
+  --dur-sheet: 450ms;   /* drawer / sheet enter */
+  --shadow-float: 0 12px 40px rgba(11, 21, 20, .18);
+
+  /* Type scale (mobile first) */
+  --fs-display: 38px; --lh-display: 44px;
+  --fs-h2: 32px; --lh-h2: 38px;
+  --fs-h3: 24px; --lh-h3: 31px;
+  --fs-h4: 20px; --lh-h4: 28px;
+  --fs-price: 24px; --lh-price: 30px;
+  --fs-stat: 36px; --lh-stat: 42px;
+  --fs-eyebrow: 16px; --lh-eyebrow: 24px;
+  --fs-body-lg: 17px; --lh-body-lg: 26px;
+  --fs-button: 15px; --lh-button: 22px;
+  --fs-label: 16px; --lh-label: 24px;
+}
+
+@media (min-width: 768px) {
+  :root {
+    --gutter: 24px;
+    --section-y: 72px;
+  }
+}
+
+@media (min-width: 1200px) {
+  :root {
+    --gutter: 40px;
+    --section-y: 100px;
+    --header-h: 80px;
+    --fs-display: 64px; --lh-display: 72px;
+    --fs-h2: 48px; --lh-h2: 58px;
+    --fs-h3: 30px; --lh-h3: 39px;
+    --fs-h4: 24px; --lh-h4: 34px;
+    --fs-price: 30px; --lh-price: 39px;
+    --fs-stat: 48px; --lh-stat: 58px;
+    --fs-eyebrow: 18px; --lh-eyebrow: 27px;
+    --fs-body-lg: 18px; --lh-body-lg: 27px;
+    --fs-button: 16px; --lh-button: 24px;
+    --fs-label: 18px; --lh-label: 27px;
+  }
+}

@@ -1,0 +1,12 @@
+/* Single stylesheet entry, linked from <head> (partials/head.html) so it is render-blocking:
+   the first paint is always the styled page, never raw HTML on white. */
+@import '@fontsource/prata/400.css';
+@import '@fontsource/jost/400.css';
+@import '@fontsource/jost/500.css';
+@import '@fontsource/jost/600.css';
+@import 'lenis/dist/lenis.css';
+@import './tokens.css';
+@import './base.css';
+@import './components.css';
+@import './sections.css';
+@import './pages.css';
