@@ -1,10 +1,9 @@
 // Cart state: localStorage-backed external store, read by React through useSyncExternalStore
 // (see hooks/useCart.js). The snapshot is recomputed once per change, so it is referentially stable.
 import { byId } from '../data/menu.js';
-import { ZONES, DEFAULT_FREE_FROM } from '../data/zones.js';
+import { PROMOS, priceItems } from '../lib/pricing.js';
 
 const KEY = 'smak-cart-v1';
-const PROMOS = { 'СМАК10': 0.1, 'SMAK10': 0.1 };
 const listeners = new Set();
 
 const empty = () => ({ items: [], promo: null, zone: null });
@@ -88,25 +87,7 @@ export function applyPromo(code) {
 
 export function setZone(zoneId) { state.zone = zoneId; emit({ type: 'zone' }); }
 
-function compute() {
-  const lines = state.items.map((i) => {
-    const dish = byId(i.id);
-    return { ...i, dish, sum: dish.price * i.qty };
-  });
-  const subtotal = lines.reduce((s, l) => s + l.sum, 0);
-  const count = lines.reduce((s, l) => s + l.qty, 0);
-  const zone = ZONES.find((z) => z.id === state.zone) || null;
-  const freeFrom = zone ? zone.freeFrom : DEFAULT_FREE_FROM;
-  const baseFee = zone ? zone.fee : 290;
-  const delivery = !count ? 0 : freeFrom != null && subtotal >= freeFrom ? 0 : baseFee;
-  const discount = state.promo ? Math.round(subtotal * PROMOS[state.promo]) : 0;
-  return {
-    lines, count, subtotal, delivery, discount, freeFrom, zone,
-    promo: state.promo,
-    toFree: freeFrom != null ? Math.max(0, freeFrom - subtotal) : null,
-    total: subtotal + delivery - discount,
-  };
-}
+const compute = () => priceItems({ items: state.items, promo: state.promo, zoneId: state.zone });
 
 snap = compute();
 export const totals = () => snap;

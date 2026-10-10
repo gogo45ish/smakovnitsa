@@ -5,7 +5,9 @@ A React single-page app (Vite, React 19, React Router) with GSAP (ScrollTrigger,
 ```bash
 npm install
 npm run dev      # http://localhost:5173
+npm run api      # order + payment server on :3000 (Vite proxies /api to it)
 npm run build    # → dist/
+npm start        # production: the API server also serves dist/
 ```
 
 ## Pages
@@ -16,7 +18,7 @@ Every page is a React component; routes live in `src/router.jsx`. Moving between
 | `/` | Home | `src/pages/HomePage.jsx` + `src/components/home/*` (Hero, About, Categories, WhyUs, MenuSection, StatsBand, Events, Reviews, Zones) |
 | `/menu` | Full menu with promo banners and a product grid | `src/pages/MenuPage.jsx` |
 | `/checkout` | Checkout | `src/pages/CheckoutPage.jsx` |
-| `/order?id=…` | Order status | `src/pages/OrderPage.jsx` |
+| `/order?id=…` | Payment wait / order status | `src/pages/OrderPage.jsx` |
 | anything else | 404 | `src/pages/NotFoundPage.jsx` |
 
 The old `*.html` URLs redirect to these routes. The shell lives in `src/components/layout/`: the header, burger menu and footer, plus `RouteEffects`, which handles scroll reset or restore, `#hash` jumps and moving focus to the new page. Overlays live in `src/components/overlays/`: the cart drawer, product modal, toast, cookie card and mobile cart bar.
@@ -25,13 +27,40 @@ State lives in two small external stores that components read with `useSyncExter
 - `src/store/cart.js`: the cart, kept in localStorage
 - `src/store/ui.js`: which overlay is open, plus toasts
 
-`index.html` is only the Vite entry. Production hosting needs an SPA fallback that serves `index.html` for every route. `vite preview` already does this.
+`index.html` is only the Vite entry. Production hosting needs an SPA fallback that serves `index.html` for every route. `npm start` (and `vite preview`) already does this.
 
 ## Things to change
 - **Photos:** the food photos live in `public/img/photos/` as webp files. Dish photos are named after the dish `id` in `src/data/menu.js`; the round plates (`plate-*`) are square photos that CSS crops to a circle. To swap one, drop in a new file with the same name: 720×720 for dishes, 800×800 for plates. The avatars, botanicals and noise texture are drawn SVGs made by `node scripts/gen-placeholders.mjs`.
 - **Menu and prices:** `src/data/menu.js`. **Delivery zones:** `src/data/zones.js`.
 - **Yandex map:** the Доставка section embeds the restaurant's Yandex Maps place card. Change `MAP_EMBED` in `src/components/home/Zones.jsx` (instructions are in the file).
-- **Address check and orders** are mocked in the browser (`src/lib/address.js`, `src/pages/CheckoutPage.jsx`). Connect them to a backend.
+- **Address check** is still mocked (`src/lib/address.js`, used by both the browser and the server). Orders go to the server; see below.
+
+## Оплата (ЮKassa): Мир, СБП, SberPay
+Orders and payments run on a small Express server in `server/`:
+
+| File | What it does |
+|---|---|
+| `server/index.js` | `POST /api/orders` checks the form and **re-prices the cart from `src/data/menu.js`** (the browser's prices are ignored), then creates the ЮKassa payment. `GET /api/orders/:id` returns the order status, `POST /api/orders/:id/pay` retries a failed payment, and `POST /api/yookassa/webhook` receives ЮKassa notifications. |
+| `server/yookassa.js` | The ЮKassa API client and the 54-ФЗ receipt builder |
+| `server/store.js` | Orders in `server/data/orders.json` (swap it for a database when traffic grows) |
+| `src/lib/pricing.js` | The price calculation shared by the cart and the server |
+| `src/data/payment.js` | The checkout payment methods; `online: true` ones go through ЮKassa |
+
+How it works: the customer picks «Картой онлайн», «СБП» or «SberPay» and presses «Оплатить». The server creates a payment, and the customer lands on the ЮKassa page, where they enter a Мир/Visa/Mastercard card, scan the СБП QR code or open their bank app. ЮKassa then sends them back to `/order?id=…`, where the page shows «Ждём оплату» until the payment is confirmed, followed by the usual status stepper. The cart is emptied only after the payment succeeds. If the payment fails, the customer sees «Оплата не прошла» with a button to try again, and their cart is kept. «Картой курьеру» and «Наличными» orders skip ЮKassa and are accepted immediately.
+
+### Setting it up
+1. Register at [yookassa.ru](https://yookassa.ru) and create a **test shop**. It is free and needs no contract.
+2. Run `cp .env.example .env` and fill in `YOOKASSA_SHOP_ID` (Настройки → Магазин) and `YOOKASSA_SECRET_KEY` (Интеграция → Ключи API; a test key starts with `test_`).
+3. Run `npm run api` and `npm run dev`, then place an order. Pay with the [test cards](https://yookassa.ru/developers/payment-acceptance/testing-and-going-live/testing) from the ЮKassa docs. Locally the order page asks ЮKassa for the status itself, so you don't need the webhook to test.
+
+Without keys the server still takes courier and cash orders. For online methods it answers «Онлайн-оплата временно недоступна».
+
+### Going live
+- Sign the ЮKassa contract. This needs an ИП, ООО or самозанятый. Then put the **live** `shopId` and secret key in `.env` on the server.
+- Set `PUBLIC_URL` to the site's https address. ЮKassa returns customers to `$PUBLIC_URL/order?id=…`.
+- In ЮKassa → Интеграция → HTTP-уведомления, set the URL to `https://<домен>/api/yookassa/webhook` and tick `payment.succeeded` and `payment.canceled`. The server never trusts the notification body: it re-reads the payment from the API with your key before changing an order.
+- **Чеки (54-ФЗ):** turn on «Чеки от ЮKassa» (or connect an online cash register) and set `YOOKASSA_RECEIPTS=1`. Set `YOOKASSA_VAT_CODE` to match your tax regime. Each dish becomes a receipt line, delivery is its own line, and promo discounts are spread across the dishes.
+- Run `npm run build && npm start` behind nginx (or similar) with HTTPS, and back up `server/data/`.
 
 ## Animation and reduced motion
 If the OS asks for reduced motion (on Windows: Settings → Accessibility → Visual effects → Animation effects), the site follows design.md §8 and turns off pinning, parallax and smooth scroll.

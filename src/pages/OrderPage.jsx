@@ -1,11 +1,12 @@
-// /order — status stepper with mock progression — design.md §7.6
+// /order — payment wait / status stepper with mock progression — design.md §7.6
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { useGSAP, gsap, isReduced } from '../lib/scroll.js';
 import { byId } from '../data/menu.js';
-import { replaceItems } from '../store/cart.js';
-import { openCart } from '../store/ui.js';
+import { replaceItems, clear } from '../store/cart.js';
+import { openCart, toast } from '../store/ui.js';
 import { rub } from '../lib/format.js';
+import { getOrder, retryPayment } from '../lib/api.js';
 import { Icon } from '../components/ui/Icon.jsx';
 import { Summary } from '../components/ui/Summary.jsx';
 import { ArrowLink } from '../components/ui/Link.jsx';
@@ -19,10 +20,23 @@ const STEPS = [
 // Mock timing: each status advances after N seconds (real app: websocket / Telegram bot)
 const STEP_SECONDS = [0, 8, 20, 45];
 
-const pickup = (data) => data.method === 'pickup';
+// While ЮKassa hasn't answered yet: ask the server every 2.5 s, for up to 3 minutes
+const POLL_MS = 2500;
+const POLL_TRIES = 72;
+const DONE = ['paid', 'accepted'];
+const LAST_KEY = 'smak-last-order';
 
-function loadOrder() {
-  try { return JSON.parse(localStorage.getItem('smak-order')); } catch { return null; }
+const pickup = (data) => data.method === 'pickup';
+const hhmm = (d) => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+const whenOf = (data) => data.slot ?? hhmm(new Date(data.acceptedAt + data.eta * 60000));
+
+/** The cart is emptied once per order, when it is paid or accepted (not on a return visit) */
+function clearCartFor(id) {
+  try {
+    if (localStorage.getItem(LAST_KEY) === id) return;
+    localStorage.setItem(LAST_KEY, id);
+  } catch { /* storage blocked: clear anyway */ }
+  clear();
 }
 
 /** Courier dot travelling along the route while the order is on its way */
@@ -107,7 +121,7 @@ function OrderStatus({ data }) {
         <h2 className="t-h3" id="order-sum-title" style={{ marginBottom: 16 }}>Состав заказа</h2>
         <div className="order-meta">
           <span>{pickup ? 'Самовывоз' : 'Адрес'}: <strong>{data.address}</strong></span>
-          <span>Оплата: <strong>{data.pay}</strong> · Персон: <strong>{data.persons}</strong></span>
+          <span>Оплата: <strong>{data.pay}{data.status === 'paid' && ' · оплачено'}</strong> · Персон: <strong>{data.persons}</strong></span>
         </div>
         <ul className="line-items">
           {data.items.map((it) => {
@@ -127,30 +141,109 @@ function OrderStatus({ data }) {
   );
 }
 
+function Hero({ eyebrow, title, children }) {
+  return (
+    <section className="page-hero">
+      <div className="container">
+        <span className="t-eyebrow">{eyebrow}</span>
+        <h1 className="t-h2">{title}</h1>
+        {children}
+      </div>
+    </section>
+  );
+}
+
 export default function OrderPage() {
   const [params] = useSearchParams();
-  const [data] = useState(loadOrder);
   const id = params.get('id');
-  const found = data && (!id || String(data.id) === id);
+  const [data, setData] = useState(null);
+  const [state, setState] = useState(id ? 'loading' : 'missing'); // loading | ready | missing | error
+  const [retrying, setRetrying] = useState(false);
+  const tries = useRef(0);
+
+  const load = () => getOrder(id)
+    .then((o) => { setData(o); setState('ready'); })
+    .catch((err) => setState(err.status === 404 ? 'missing' : 'error'));
+
+  useEffect(() => { if (id) { tries.current = 0; load(); } }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const status = data?.status;
+  useEffect(() => {
+    if (DONE.includes(status)) clearCartFor(data.id);
+    if (status !== 'awaiting_payment' || tries.current >= POLL_TRIES) return undefined;
+    const timer = setTimeout(() => { tries.current += 1; load(); }, POLL_MS);
+    return () => clearTimeout(timer);
+  }, [data]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const pay = async () => {
+    setRetrying(true);
+    try {
+      const res = await retryPayment(data.id);
+      window.location.assign(res.confirmationUrl);
+    } catch (err) {
+      setRetrying(false);
+      toast(err.message);
+    }
+  };
+
+  const no = `Заказ №${data?.number}`;
+  let hero;
+  if (state === 'loading') hero = <Hero eyebrow="Заказ" title="Загружаем заказ…" />;
+  else if (state === 'error') {
+    hero = (
+      <Hero eyebrow="Заказ" title="Не удалось загрузить заказ">
+        <p className="t-body-lg muted">Проверьте интернет. <button type="button" className="btn btn-outline-dark" onClick={() => { setState('loading'); load(); }}>Обновить</button></p>
+      </Hero>
+    );
+  } else if (state === 'missing') {
+    hero = (
+      <Hero eyebrow="Заказ" title="Заказ не найден">
+        <p className="t-body-lg muted">Проверьте ссылку или оформите заказ заново. <ArrowLink to="/menu" style={{ color: 'var(--salmon)' }}>Перейти в меню</ArrowLink></p>
+      </Hero>
+    );
+  } else if (status === 'awaiting_payment') {
+    const gaveUp = tries.current >= POLL_TRIES;
+    hero = (
+      <Hero eyebrow={no} title="Ждём оплату">
+        <p className="t-body-lg muted" aria-live="polite">
+          {gaveUp
+            ? 'Банк ещё не подтвердил платёж. Если вы уже оплатили, обновите страницу через минуту.'
+            : 'Как только банк подтвердит платёж, заказ уйдёт на кухню. Обычно это несколько секунд.'}
+        </p>
+        <div className="order-actions">
+          {data.confirmationUrl && <a className="btn btn-primary" href={data.confirmationUrl}>Перейти к оплате · {rub(data.total)}</a>}
+          {gaveUp && <button type="button" className="btn btn-outline-dark" onClick={() => { tries.current = 0; load(); }}>Проверить ещё раз</button>}
+        </div>
+      </Hero>
+    );
+  } else if (status === 'payment_failed') {
+    hero = (
+      <Hero eyebrow={no} title="Оплата не прошла">
+        <p className="t-body-lg muted">Деньги не списаны. Попробуйте ещё раз или выберите другой способ оплаты — корзина сохранена.</p>
+        <div className="order-actions">
+          <button type="button" className="btn btn-primary" disabled={retrying} onClick={pay}>{retrying ? 'Переходим к оплате…' : `Оплатить ещё раз · ${rub(data.total)}`}</button>
+          <ArrowLink to="/checkout" style={{ color: 'var(--salmon)' }}>Изменить способ оплаты</ArrowLink>
+        </div>
+      </Hero>
+    );
+  } else {
+    hero = (
+      <Hero eyebrow={no} title="Спасибо!">
+        <p className="t-body-lg muted">
+          {pickup(data)
+            ? `${no} ${status === 'paid' ? 'оплачен и ' : ''}принят. Будет готов к ${whenOf(data)} на ${data.address}.`
+            : `${no} ${status === 'paid' ? 'оплачен и ' : ''}принят. Привезём к ${whenOf(data)}.`}
+        </p>
+      </Hero>
+    );
+  }
 
   return (
     <main id="main" tabIndex={-1} className="theme-dark noise">
-      <title>{found ? `Заказ №${data.id} — Смаковница` : 'Заказ не найден — Смаковница'}</title>
+      <title>{data ? `${no} — Смаковница` : 'Заказ — Смаковница'}</title>
       <meta name="robots" content="noindex" />
-      <section className="page-hero">
-        <div className="container">
-          <span className="t-eyebrow">{found ? `Заказ №${data.id}` : 'Заказ'}</span>
-          <h1 className="t-h2">{found ? 'Спасибо!' : 'Заказ не найден'}</h1>
-          <p className="t-body-lg muted">
-            {!found
-              ? <>Возможно, он был оформлен на другом устройстве. <ArrowLink to="/menu" style={{ color: 'var(--salmon)' }}>Перейти в меню</ArrowLink></>
-              : pickup(data)
-                ? `Заказ №${data.id} принят. Будет готов к ${data.when} на ${data.address}.`
-                : `Заказ №${data.id} принят. Привезём к ${data.when}.`}
-          </p>
-        </div>
-      </section>
-      {found && <OrderStatus data={data} />}
+      {hero}
+      {DONE.includes(status) && <OrderStatus key={data.id} data={{ ...data, createdAt: data.acceptedAt }} />}
     </main>
   );
 }

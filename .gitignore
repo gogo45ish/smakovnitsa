@@ -2,3 +2,5 @@ node_modules
 dist
 .claude
 .agents
+.env
+server/data

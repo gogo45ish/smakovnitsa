@@ -2,24 +2,20 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { snapshot, clear, setZone } from '../store/cart.js';
+import { toast } from '../store/ui.js';
 import { PICKUP_ADDRESS } from '../data/zones.js';
+import { PAY, payMethod } from '../data/payment.js';
 import { useCart } from '../hooks/useCart.js';
 import { useReveals } from '../hooks/useReveals.js';
 import { gsap, isReduced, scrollToEl } from '../lib/scroll.js';
 import { checkAddress, zoneMessage, savedAddress } from '../lib/address.js';
 import { rub } from '../lib/format.js';
+import { createOrder } from '../lib/api.js';
 import { Summary } from '../components/ui/Summary.jsx';
 import { Num } from '../components/ui/Num.jsx';
 import { Link, ArrowLink } from '../components/ui/Link.jsx';
 
 const NB = ' ';
-const PAY = [
-  { value: 'card', label: 'Картой онлайн', note: 'Мир, Visa, Mastercard' },
-  { value: 'sbp', label: 'СБП', note: 'Оплата по QR-коду' },
-  { value: 'sberpay', label: 'SberPay' },
-  { value: 'courier-card', label: 'Картой курьеру' },
-  { value: 'cash', label: 'Наличными' },
-];
 const ERRORS = {
   name: 'Как к вам обращаться?',
   phone: 'Введите номер полностью: +7 (___) ___-__-__',
@@ -58,8 +54,6 @@ function makeSlots() {
   return slots;
 }
 
-const hhmm = (d) => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-
 /** Label + input + inline error, wired with aria-invalid / aria-describedby */
 function Field({ name, label, error, required, hint, children }) {
   return (
@@ -89,6 +83,13 @@ export default function CheckoutPage() {
   const [errors, setErrors] = useState({});
   const [zone, setZoneState] = useState(null); // result of the last address check
   const [minError, setMinError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  // Back from the payment page can restore this page from bfcache mid-submit
+  useEffect(() => {
+    const onShow = (e) => { if (e.persisted) setSubmitting(false); };
+    window.addEventListener('pageshow', onShow);
+    return () => window.removeEventListener('pageshow', onShow);
+  }, []);
   const slots = useMemo(makeSlots, []);
 
   const set = (name, value) => {
@@ -113,14 +114,21 @@ export default function CheckoutPage() {
   }, [f.when]);
 
   const pickup = f.method === 'pickup';
+  const online = !!payMethod(f.pay)?.online;
   const view = pickup ? { ...t, delivery: 0, total: t.subtotal - t.discount } : t;
   useEffect(() => { setMinError(''); }, [t.subtotal, f.method]);
 
   const zoneHint = zone?.zone ? `✓ ${zoneMessage(zone.zone)}` : zone?.out ? `Сюда пока не доставляем, но можно забрать самовывозом на ${PICKUP_ADDRESS}` : '';
 
-  const onSubmit = (e) => {
+  const focusField = (name) => {
+    const field = formRef.current.querySelector(`[data-field="${name}"]`);
+    scrollToEl(field);
+    field.querySelector('input').focus({ preventScroll: true });
+  };
+
+  const onSubmit = async (e) => {
     e.preventDefault();
-    if (!t.count) return;
+    if (!t.count || submitting) return;
     const next = {
       name: !f.name.trim() && ERRORS.name,
       phone: formatPhone(f.phone).digits.length !== 10 && ERRORS.phone,
@@ -143,31 +151,28 @@ export default function CheckoutPage() {
       if (!isReduced()) gsap.fromTo(slotsRef.current, { x: -6 }, { x: 0, duration: 0.4, ease: 'elastic.out(1, 0.4)' });
       if (!firstBad) { slotsRef.current.querySelector('button')?.focus(); return; }
     }
-    if (firstBad) {
-      const field = formRef.current.querySelector(`[data-field="${firstBad}"]`);
-      scrollToEl(field);
-      field.querySelector('input').focus({ preventScroll: true });
-      return;
-    }
+    if (firstBad) { focusField(firstBad); return; }
 
-    const res = pickup ? null : checkAddress(f.address);
-    const eta = new Date(Date.now() + (res?.zone?.eta ?? 25) * 60000);
-    const id = 4000 + Math.floor(Math.random() * 5000);
-    const order = {
-      id,
-      items: snapshot(),
-      subtotal: view.subtotal, delivery: view.delivery, discount: view.discount, total: view.total,
-      method: f.method,
-      address: pickup ? PICKUP_ADDRESS : f.address.trim(),
-      when: f.when === 'slot' ? slot : hhmm(eta),
-      pay: PAY.find((p) => p.value === f.pay).label,
-      persons,
-      name: f.name.trim(),
-      createdAt: Date.now(),
-    };
-    try { localStorage.setItem('smak-order', JSON.stringify(order)); } catch { /* ignore */ }
-    clear();
-    navigate(`/order?id=${id}`, { viewTransition: true });
+    // The server re-prices the order from the menu; for online payment it returns the ЮKassa page
+    setSubmitting(true);
+    try {
+      const res = await createOrder({
+        ...f, slot, persons, items: snapshot(), promo: t.promo,
+        phone: formatPhone(f.phone).digits,
+      });
+      if (res.confirmationUrl) {
+        // The cart stays until the payment succeeds (OrderPage clears it), so a failed payment loses nothing
+        window.location.assign(res.confirmationUrl);
+        return;
+      }
+      clear();
+      navigate(`/order?id=${res.id}`, { viewTransition: true });
+    } catch (err) {
+      setSubmitting(false);
+      if (err.field === 'min') setMinError(err.message);
+      else if (err.field && ERRORS[err.field]) { setErrors((x) => ({ ...x, [err.field]: err.message })); focusField(err.field); }
+      else toast(err.message);
+    }
   };
 
   return (
@@ -314,9 +319,12 @@ export default function CheckoutPage() {
               <div className="co-empty"><p>Корзина пуста.</p><ArrowLink to="/menu">Перейти в меню</ArrowLink></div>
             )}
             {minError && <p className="field-error" role="alert" style={{ display: 'block' }} data-min-error>{minError}</p>}
-            <button className="btn btn-primary btn-block" type="submit" disabled={!t.count} data-co-submit>
-              {t.count ? <>Подтвердить заказ · <Num value={rub(view.total)} /></> : 'Подтвердить заказ'}
+            <button className="btn btn-primary btn-block" type="submit" disabled={!t.count || submitting} aria-busy={submitting || undefined} data-co-submit>
+              {submitting
+                ? (online ? 'Переходим к оплате…' : 'Отправляем заказ…')
+                : t.count ? <>{online ? 'Оплатить' : 'Подтвердить заказ'} · <Num value={rub(view.total)} /></> : 'Подтвердить заказ'}
             </button>
+            {online && <p className="co-hint" style={{ textAlign: 'center' }}>Оплата на защищённой странице ЮKassa</p>}
           </aside>
         </form>
       </div>
